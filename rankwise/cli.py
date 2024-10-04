@@ -17,8 +17,10 @@ import sys
 
 from rankwise.evaluate.calculations import build_evaluation_report
 from rankwise.evaluate.io import accumulate_evaluation_metrics, build_evaluator
+from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import UndefinedEnvVarError, import_embedding_model, import_llm_model
+from rankwise.importer.io import (UndefinedEnvVarError, import_embedding_model,
+                                  import_llm_model)
 from rankwise.io import as_jsonlines, read_evaluate_input, read_generate_input
 
 
@@ -70,7 +72,18 @@ def run_evaluate_subcommand(args):
 @as_jsonlines
 def run_generate_subcommand(args):
     input_data = read_generate_input(args.input)
-    dataset = generate_dataset(args.model.instance, input_data, args.queries_count)
+
+    if args.question_prompt_file is None:
+        prompt = DEFAULT_QUESTION_PROMPT
+    else:
+        prompt = args.question_prompt_file.read()
+
+    dataset = generate_dataset(
+        args.model.instance,
+        input_data,
+        args.queries_count,
+        prompt,
+    )
 
     for example in dataset.examples:
         yield {"query": example.query, "contents": example.reference_contexts}
@@ -132,6 +145,12 @@ def make_parser():
         required=False,
         default=sys.stdin,
         help="Input file",
+    )
+    generate_parser.add_argument(
+        "--question-prompt-file",
+        type=argparse.FileType("r"),
+        required=False,
+        help="Question prompt file",
     )
     generate_parser.add_argument(
         "-q",

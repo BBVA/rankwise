@@ -17,9 +17,12 @@ from llama_index.core.llama_dataset.generator import RagDatasetGenerator
 from rankwise.calculations import content_to_node
 
 
-def generate_dataset(model, contents, queries_count):
+def generate_dataset(model, contents, queries_count, question_gen_query):
     nodes = [content_to_node(c) for c in contents]
     dataset_generator = RagDatasetGenerator(
-        llm=model, nodes=nodes, num_questions_per_chunk=queries_count
+        llm=model,
+        nodes=nodes,
+        num_questions_per_chunk=queries_count,
+        question_gen_query=question_gen_query,
     )
     return dataset_generator.generate_dataset_from_nodes()

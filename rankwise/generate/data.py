@@ -1,0 +1,1 @@
+DEFAULT_QUESTION_PROMPT = "You are a search engine user. Your task is to setup search terms or phrases for finding the given context document. The search terms should be diverse in nature across the document. Do not include any quote or format the terms, provide them in plain format. Restrict the terms to the context information provided."
