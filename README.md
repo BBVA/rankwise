@@ -33,7 +33,7 @@ poetry install
 poetry shell
 ```
 
-- Run the `generate` command to create a dataset containing queries and their related documents in JSONL format from a `data.jsonl` file with one document per line.
+- Run the `generate` command to create a dataset containing queries and their related documents in JSONL format from a `data.jsonl` file with one document (a json encoded string) per line.
 
 ```bash
 API_KEY=xxx rankwise generate --model "azure_openai.AzureOpenAI(model='gpt-4o',deployment_name='gpt-4o',api_version='2023-07-01-preview',azure_endpoint='https://your-azure-endpoint',api_key=ENVVAR('API_KEY'))" --queries-count 3 --input data.jsonl > dataset.jsonl

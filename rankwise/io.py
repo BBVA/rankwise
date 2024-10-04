@@ -34,7 +34,7 @@ def read_evaluate_input(file):
 
 
 def read_generate_input(file):
-    return set(file)
+    return set(json.loads(line) for line in file)
 
 
 def as_jsonlines(fn):
