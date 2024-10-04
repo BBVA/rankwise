@@ -19,8 +19,7 @@ from rankwise.evaluate.calculations import build_evaluation_report
 from rankwise.evaluate.io import accumulate_evaluation_metrics, build_evaluator
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import (UndefinedEnvVarError, import_embedding_model,
-                                  import_llm_model)
+from rankwise.importer.io import UndefinedEnvVarError, import_embedding_model, import_llm_model
 from rankwise.io import as_jsonlines, read_evaluate_input, read_generate_input
 
 

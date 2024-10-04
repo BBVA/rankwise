@@ -28,6 +28,7 @@ def _calculate_evaluation_metrics_statistics(metrics):
                 warn(f"Error calculating metric {metric_name!r}, namely {exc!r}")
                 statistics[metric_name] = float("nan")
         return statistics
+
     return {metric: _calculate_metric_statistic(values) for metric, values in metrics.items()}
 
 
