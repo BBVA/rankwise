@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from llama_index.core.llama_dataset.generator import RagDatasetGenerator
 
 from rankwise.calculations import content_to_node
@@ -26,3 +28,4 @@ def generate_dataset(model, contents, queries_count, question_gen_query):
         question_gen_query=question_gen_query,
     )
     return dataset_generator.generate_dataset_from_nodes()
+
