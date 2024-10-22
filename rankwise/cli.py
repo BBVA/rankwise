@@ -101,27 +101,29 @@ def run_generate_subcommand(args):
         result = args.cross_encoder_model[0].instance.predict([query, doc])
         return result
 
-    for doc in input_data:
+    # input => {"document": "", "questions": ["", ""]}
+
+    for row in input_data:
         good, bad = list(), list()
         considered = set()
         num_requests = 0
-        while len(good) < args.num_questions and num_requests < args.limit:
-            response = generate_dataset(args.generative_model.instance, [doc], args.num_questions, args.prompt)
-            for examples in response.examples:
-                query = examples.query
-                if query in considered:
-                    continue
+        doc = row["document"]
+        questions = row["questions"]
+        for question in questions:
+            if question in considered:
+                continue
 
-                distance = calculate_distance(query, doc)
+            distance = calculate_distance(question, doc)
 
-                is_best = all(calculate_distance(query, d) < distance for d in input_data if doc != d)
-                
-                if is_best:
-                    good.append((distance, query))
-                else:
-                    bad.append((distance, query))
-                num_requests += 1
-                considered.add(query)
+            is_best = all(calculate_distance(question, row["document"]) < distance for row in input_data if doc != row["document"])
+            best_document = list(sorted([(calculate_distance(question, row["document"]), row["document"]) for row in input_data], key=(lambda x: x[0]), reverse=True))[0][1]
+            
+            if is_best:
+                good.append((distance, question))
+            else:
+                bad.append((distance, {"question": question, "best": best_document}))
+            num_requests += 1
+            considered.add(question)
 
         good = [doc for (_, doc) in sorted(good, reverse=True)]
         bad = [doc for (_, doc) in sorted(bad, reverse=True)]
