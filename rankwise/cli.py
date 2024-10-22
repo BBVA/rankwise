@@ -25,7 +25,7 @@ from rankwise.evaluate.io import accumulate_evaluation_metrics, build_evaluator
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
 from rankwise.generate.calculations import format_output
-from rankwise.importer.io import UndefinedEnvVarError, import_embedding_model, import_llm_model
+from rankwise.importer.io import UndefinedEnvVarError, import_embedding_model, import_llm_model, import_cross_encoder
 from rankwise.io import as_jsonlines, read_evaluate_input, read_generate_input
 
 
@@ -90,9 +90,16 @@ def run_generate_subcommand(args):
             return result
         return calculate_distance
 
+	# from sentence_transformers.cross_encoder import CrossEncoder
+	# model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", default_activation_function=torch.nn.Sigmoid())
+	# scores = model.predict([("How many people live in Madrid?", "Berlin had a population of 3,520,031 registered inhabitants in an area of 891.82 square kilometers.")])
+
     input_data = read_generate_input(args.input)
 
-    calculate_average_distance = build_distance_function(*(model.instance.get_text_embedding for model in args.embedding_model))
+    # calculate_distance = build_distance_function(*(model.instance.get_text_embedding for model in args.embedding_model))
+    def calculate_distance(query, doc):
+        result = args.cross_encoder_model[0].instance.predict([query, doc])
+        return result
 
     for doc in input_data:
         good, bad = list(), list()
@@ -105,9 +112,9 @@ def run_generate_subcommand(args):
                 if query in considered:
                     continue
 
-                distance = calculate_average_distance(query, doc)
+                distance = calculate_distance(query, doc)
 
-                is_best = all(calculate_average_distance(query, d) < distance for d in input_data if doc != d)
+                is_best = all(calculate_distance(query, d) < distance for d in input_data if doc != d)
                 
                 if is_best:
                     good.append((distance, query))
@@ -179,12 +186,14 @@ def make_parser():
         help="Generative model to use",
     )
     generate_parser.add_argument(
-        "-E",
-        "--embedding-model",
+        "-C",
+        "--cross-encoder-model",
         action="append",
-        type=exceptions_to_argument_errors(import_embedding_model),
+        type=exceptions_to_argument_errors(import_cross_encoder),
         help="Name of the embedding models to use",
     )
+
+
     generate_parser.add_argument(
         "-i",
         "--input",
