@@ -12,20 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from functools import cache
 import argparse
-import json
 import sys
-from statistics import mean
+from functools import partial
 
-from sklearn.metrics.pairwise import cosine_similarity
+import rankwise.classify.cross_entropy.io
+import rankwise.classify.cosine_distance.io
+import rankwise.classify.calculations
 
 from rankwise.evaluate.calculations import build_evaluation_report
 from rankwise.evaluate.io import accumulate_evaluation_metrics, build_evaluator
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
 from rankwise.generate.calculations import format_output
-from rankwise.importer.io import UndefinedEnvVarError, import_embedding_model, import_llm_model, import_cross_encoder
+from rankwise.importer.io import (
+    UndefinedEnvVarError,
+    import_embedding_model,
+    import_llm_model,
+    import_cross_encoder,
+)
 from rankwise.io import as_jsonlines, read_evaluate_input, read_generate_input
 
 
@@ -76,59 +81,85 @@ def run_evaluate_subcommand(args):
 
 @as_jsonlines
 def run_generate_subcommand(args):
-
-    def build_distance_function(*get_text_embedding_functions):
-        """Builds a function that calculates the average cosine distance between two texts using multiple embedding models."""
-        get_text_embedding_functions = [ cache(fn) for fn in get_text_embedding_functions ]
-        def get_cosine_similarity(e1, e2):
-            return cosine_similarity([e1], [e2])[0][0]
-
-        def calculate_distance(text1, text2):
-            result = mean(get_cosine_similarity(get_text_embedding(text1), get_text_embedding(text2))
-                          for get_text_embedding in get_text_embedding_functions)
-            print(result, text1, text2)
-            return result
-        return calculate_distance
-
-	# from sentence_transformers.cross_encoder import CrossEncoder
-	# model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", default_activation_function=torch.nn.Sigmoid())
-	# scores = model.predict([("How many people live in Madrid?", "Berlin had a population of 3,520,031 registered inhabitants in an area of 891.82 square kilometers.")])
-
     input_data = read_generate_input(args.input)
 
-    # calculate_distance = build_distance_function(*(model.instance.get_text_embedding for model in args.embedding_model))
-    def calculate_distance(query, doc):
-        result = args.cross_encoder_model[0].instance.predict([query, doc])
-        return result
+    if args.question_prompt_file is None:
+        prompt = DEFAULT_QUESTION_PROMPT
+    else:
+        prompt = args.question_prompt_file.read()
 
-    # input => {"document": "", "questions": ["", ""]}
+    for document in input_data:
+        generation = generate_dataset(
+            args.model.instance,
+            [document],
+            args.queries_count,
+            prompt,
+        )
+        yield {
+            "document": document,
+            "questions": [example.query for example in generation.examples],
+        }
 
+
+@as_jsonlines
+def run_classify_cross_encoder_subcommand(args):
+    input_data = read_generate_input(args.input)
+
+    cross_encoder_distance = partial(
+        rankwise.classify.cosine_distance.io.calculate_distance,
+        model=args.cross_encoder_model.instance,
+    )
+
+    # input_data :: {"document": "DocA", "questions": ["Q1", "Q2"]}
+    all_documents = set(row["document"] for row in input_data)
+    is_best_according_to_cross_encoder = partial(
+        rankwise.classify.calculations.is_best,
+        distance_fn=cross_encoder_distance,
+        comparison_fn=rankwise.classify.calculations.strictly_greatest,
+        all_documents=all_documents,
+    )
     for row in input_data:
         good, bad = list(), list()
-        considered = set()
-        num_requests = 0
-        doc = row["document"]
-        questions = row["questions"]
+        this_document, questions = row["document"], row["questions"]
+
         for question in questions:
-            if question in considered:
-                continue
+            collection = (
+                good if is_best_according_to_cross_encoder(question, this_document) else bad
+            )
+            collection.append(question)
 
-            distance = calculate_distance(question, doc)
+        yield format_output(this_document, good, bad)
 
-            is_best = all(calculate_distance(question, row["document"]) < distance for row in input_data if doc != row["document"])
-            best_document = list(sorted([(calculate_distance(question, row["document"]), row["document"]) for row in input_data], key=(lambda x: x[0]), reverse=True))[0][1]
-            
-            if is_best:
-                good.append((distance, question))
-            else:
-                bad.append((distance, {"question": question, "best": best_document}))
-            num_requests += 1
-            considered.add(question)
 
-        good = [doc for (_, doc) in sorted(good, reverse=True)]
-        bad = [doc for (_, doc) in sorted(bad, reverse=True)]
+@as_jsonlines
+def run_classify_cosine_similarity_subcommand(args):
+    input_data = read_generate_input(args.input)
 
-        yield format_output(doc, good, bad)
+    embedding_functions = [model.instance.get_text_embedding for model in args.embedding_model]
+    calculate_average_cosine_distance = (
+        rankwise.classify.cosine_distance.io.build_distance_function(embedding_functions)
+    )
+
+    # input_data :: {"document": "DocA", "questions": ["Q1", "Q2"]}
+    all_documents = set(row["document"] for row in input_data)
+    is_best_according_to_cosine_similarity = partial(
+        rankwise.classify.calculations.is_best,
+        distance_fn=calculate_average_cosine_distance,
+        comparison_fn=rankwise.classify.calculations.strictly_greatest,
+        all_documents=all_documents,
+    )
+    for row in input_data:
+        good, bad = list(), list()
+        this_document, questions = row["document"], row["questions"]
+
+        for question in questions:
+            collection = (
+                good if is_best_according_to_cosine_similarity(question, this_document) else bad
+            )
+            collection.append(question)
+
+        yield format_output(this_document, good, bad)
+
 
 def make_parser():
     parser = argparse.ArgumentParser(description="Rankwise: A tool for evaluating embedding models")
@@ -141,7 +172,7 @@ def make_parser():
         "--embedding-model",
         action="append",
         type=exceptions_to_argument_errors(import_embedding_model),
-        help="Name of the embedding model to use",
+        help="Embedding model to use",
     )
     evaluate_parser.add_argument(
         "-i",
@@ -178,7 +209,6 @@ def make_parser():
     )
     evaluate_parser.set_defaults(func=run_evaluate_subcommand)
 
-    # Dataset
     generate_parser = subparsers.add_parser("generate", help="Generate a dataset for evaluation")
     generate_parser.add_argument(
         "-G",
@@ -187,15 +217,6 @@ def make_parser():
         required=True,
         help="Generative model to use",
     )
-    generate_parser.add_argument(
-        "-C",
-        "--cross-encoder-model",
-        action="append",
-        type=exceptions_to_argument_errors(import_cross_encoder),
-        help="Name of the embedding models to use",
-    )
-
-
     generate_parser.add_argument(
         "-i",
         "--input",
@@ -232,6 +253,64 @@ def make_parser():
         help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
     )
     generate_parser.set_defaults(func=run_generate_subcommand)
+
+    classify_parser = subparsers.add_parser(
+        "classify", help="Categorize the generated dataset by quality"
+    )
+    classify_subparsers = classify_parser.add_subparsers(
+        dest="command", title="commands", required=True
+    )
+    classify_cross_encoder_parser = classify_subparsers.add_parser(
+        "cross-encoder", help="Categorize the generated dataset by cross-encoder"
+    )
+
+    classify_cross_encoder_parser.add_argument(
+        "-C",
+        "--cross-encoder-model",
+        action="append",
+        type=exceptions_to_argument_errors(import_cross_encoder),
+        help="Embedding models to use",
+    )
+    classify_cross_encoder_parser.add_argument(
+        "-i",
+        "--input",
+        type=argparse.FileType("r"),
+        required=False,
+        default=sys.stdin,
+        help="Input file",
+    )
+    classify_cross_encoder_parser.add_argument(
+        "-o",
+        "--output-file",
+        type=argparse.FileType("wb"),
+        help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
+    )
+    classify_cross_encoder_parser.set_defaults(func=run_classify_cross_encoder_subcommand)
+
+    classify_cosine_similarity_parser = classify_subparsers.add_parser(
+        "cosine-similarity", help="Categorize the generated dataset by cosine similarity"
+    )
+    classify_cosine_similarity_parser.add_argument(
+        "-i",
+        "--input",
+        type=argparse.FileType("r"),
+        required=False,
+        default=sys.stdin,
+        help="Input file",
+    )
+    classify_cosine_similarity_parser.add_argument(
+        "-E",
+        "--embedding-model",
+        action="append",
+        type=exceptions_to_argument_errors(import_embedding_model),
+        help="Embedding model to use",
+    )
+    classify_cosine_similarity_parser.add_argument(
+        "-o",
+        "--output-file",
+        type=argparse.FileType("wb"),
+        help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
+    )
 
     return parser
 
