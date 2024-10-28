@@ -77,3 +77,27 @@ This project is licensed under the Apache v2.0 License - see the `LICENSE` file 
 ## Contact
 
 If you have any questions or suggestions, feel free to contact the authors.
+
+
+# POC Classify
+
+```bash
+
+export OPENAI_ENGINE=gpt-4o
+export OPENAI_API_VERSION=2023-07-01-preview
+export OPENAI_API_BASE=https://**************************.openai.azure.com
+export OPENAI_API_KEY=********************************
+export OPENAI_EMBEDDING_ENGINE=text-embedding-3-large
+
+# Generate questions from a set of documents
+rankwise generate --input documents.jsonl -q5 \
+        -M 'azure_openai.AzureOpenAI(model="gpt-4", deployment_name=ENVVAR("OPENAI_ENGINE"), api_version=ENVVAR("OPENAI_API_VERSION"), azure_endpoint=ENVVAR("OPENAI_API_BASE"), api_key=ENVVAR("OPENAI_API_KEY"))' > generation.jsonl
+
+# Classify using several methods and compare!
+rankwise classify cross-encoder -i generation.jsonl -o cross_encoder_classification.jsonl \
+        -C 'cross_encoder.CrossEncoder("BAAI/bge-reranker-v2-m3", default_activation_function=torch.nn.Sigmoid())'
+rankwise classify cosine-similarity -i generation.jsonl -o cosine_similarity_classification.jsonl \
+        -E 'azure_openai.AzureOpenAIEmbedding(mode="similarity", deployment_name=ENVVAR("OPENAI_EMBEDDING_ENGINE"), api_version=ENVVAR("OPENAI_API_VERSION"), azure_endpoint=ENVVAR("OPENAI_API_BASE"), api_key=ENVVAR("OPENAI_API_KEY"))'
+
+# Enjoy!
+```
