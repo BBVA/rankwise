@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from functools import wraps
 import json
 import sys
+from functools import wraps
 
 from rankwise.data import InputData
 

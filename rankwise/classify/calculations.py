@@ -1,3 +1,17 @@
+# Copyright 2024 Banco Bilbao Vizcaya Argentaria, S.A.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from operator import __lt__ as strictly_least
 from operator import __le__ as least_among
 from operator import __gt__ as strictly_greatest
@@ -22,3 +36,11 @@ def is_best(distance_fn, comparison_fn, all_documents, question, this_document):
         comparison_fn(distance_with_this_document, distance_with_other_document)
         for distance_with_other_document in distance_with_other_documents
     )
+
+
+def format_output(document, good_questions, bad_questions):
+    return {
+        "document": document,
+        "questions": {"good": good_questions, "bad": bad_questions},
+    }
+

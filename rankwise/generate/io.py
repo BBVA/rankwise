@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-
 from llama_index.core.llama_dataset.generator import RagDatasetGenerator
 
 from rankwise.calculations import content_to_node

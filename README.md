@@ -41,6 +41,18 @@ API_KEY=xxx rankwise generate --model "azure_openai.AzureOpenAI(model='gpt-4o',d
 
 This command uses the given LLM model to generate the specified number of queries for every document in the input file.
 
+- Run the `classify` command to classify the generated queries as good/bad using a given classification model.
+
+    - If you want to use a cross-encoder model, you can use the following command: 
+    ```bash
+    API_KEY=xxx rankwise classify cross-encoder --input dataset.jsonl --cross-encoder-model "cross_encoder.CrossEncoder('BAAI/bge-reranker-v2-m3', default_activation_function=torch.nn.Sigmoid())" --output-file classified_dataset.jsonl
+    ```
+
+    - If you want to use an embedding model, you can use the following command: 
+    ```bash
+    API_KEY=xxx rankwise classify cosine-similarity --input dataset.jsonl --embedding-model "azure_openai.AzureOpenAIEmbedding(model='text-embedding-3-large',deployment_name='azure-text-embedding-ada-002',api_version='2023-07-01-preview',azure_endpoint='https://your-azure-endpoint',api_key=ENVVAR('API_KEY'))" --output-file classified_dataset.jsonl
+    ```
+
 - Run the `evaluate` command to assess your dataset and obtain quality metrics for the specified embedding model.
 
 ```bash

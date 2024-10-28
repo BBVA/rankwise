@@ -17,7 +17,6 @@ import os
 import re
 
 from rankwise.importer.data import InstantiatedObject, UndefinedEnvVarError
-import torch
 
 
 def _get_env_var(name):
@@ -29,7 +28,7 @@ def _get_env_var(name):
         ) from exc
 
 
-def _import_from_namespace(namespace, name):
+def _import_from_namespace(namespace, name, globals=None):
     match = re.match(r"(?P<module>[^.]+)\.(?P<class>[^(]+)\((?P<args>.*)\)", name)
     if match:
         try:
@@ -44,7 +43,10 @@ def _import_from_namespace(namespace, name):
                 f"Could not find class {match.group('class')!r} in module {match.group('module')!r}"
             ) from exc
         else:
-            eval_globals = {"class_": class_, "ENVVAR": _get_env_var, "torch": torch}
+            eval_globals = (globals if globals else {}) | {
+                "class_": class_,
+                "ENVVAR": _get_env_var,
+            }
             eval_locals = {}
             instance = eval(f"class_({match.group('args')})", eval_globals, eval_locals)
             return InstantiatedObject(expression=name, instance=instance)
@@ -59,4 +61,6 @@ def import_llm_model(expression):
 
 
 def import_cross_encoder(expression):
-    return _import_from_namespace("sentence_transformers", expression)
+    import torch
+
+    return _import_from_namespace("sentence_transformers", expression, globals={"torch": torch})

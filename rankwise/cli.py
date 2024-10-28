@@ -16,21 +16,15 @@ import argparse
 import sys
 from functools import partial
 
-import rankwise.classify.cross_entropy.io
-import rankwise.classify.cosine_distance.io
 import rankwise.classify.calculations
-
+import rankwise.classify.cosine_distance.io
+import rankwise.classify.cross_encoder.io
 from rankwise.evaluate.calculations import build_evaluation_report
 from rankwise.evaluate.io import accumulate_evaluation_metrics, build_evaluator
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.generate.calculations import format_output
-from rankwise.importer.io import (
-    UndefinedEnvVarError,
-    import_embedding_model,
-    import_llm_model,
-    import_cross_encoder,
-)
+from rankwise.importer.io import (UndefinedEnvVarError, import_cross_encoder,
+                                  import_embedding_model, import_llm_model)
 from rankwise.io import as_jsonlines, read_evaluate_input, read_generate_input
 
 
@@ -106,17 +100,17 @@ def run_classify_cross_encoder_subcommand(args):
     input_data = read_generate_input(args.input)
 
     cross_encoder_distance = partial(
-        rankwise.classify.cosine_distance.io.calculate_distance,
-        model=args.cross_encoder_model.instance,
+        rankwise.classify.cross_encoder.io.calculate_distance,
+        args.cross_encoder_model.instance,
     )
 
     # input_data :: {"document": "DocA", "questions": ["Q1", "Q2"]}
     all_documents = set(row["document"] for row in input_data)
     is_best_according_to_cross_encoder = partial(
         rankwise.classify.calculations.is_best,
-        distance_fn=cross_encoder_distance,
-        comparison_fn=rankwise.classify.calculations.strictly_greatest,
-        all_documents=all_documents,
+        cross_encoder_distance,
+        rankwise.classify.calculations.strictly_greatest,
+        all_documents,
     )
     for row in input_data:
         good, bad = list(), list()
@@ -128,7 +122,7 @@ def run_classify_cross_encoder_subcommand(args):
             )
             collection.append(question)
 
-        yield format_output(this_document, good, bad)
+        yield rankwise.classify.calculations.format_output(this_document, good, bad)
 
 
 @as_jsonlines
@@ -144,9 +138,9 @@ def run_classify_cosine_similarity_subcommand(args):
     all_documents = set(row["document"] for row in input_data)
     is_best_according_to_cosine_similarity = partial(
         rankwise.classify.calculations.is_best,
-        distance_fn=calculate_average_cosine_distance,
-        comparison_fn=rankwise.classify.calculations.strictly_greatest,
-        all_documents=all_documents,
+        calculate_average_cosine_distance,
+        rankwise.classify.calculations.strictly_greatest,
+        all_documents,
     )
     for row in input_data:
         good, bad = list(), list()
@@ -158,7 +152,7 @@ def run_classify_cosine_similarity_subcommand(args):
             )
             collection.append(question)
 
-        yield format_output(this_document, good, bad)
+        yield rankwise.classify.calculations.format_output(this_document, good, bad)
 
 
 def make_parser():
@@ -205,17 +199,17 @@ def make_parser():
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
-        help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
+        help="Path of the output file in jsonl format where the evaluations will be saved.",
     )
     evaluate_parser.set_defaults(func=run_evaluate_subcommand)
 
     generate_parser = subparsers.add_parser("generate", help="Generate a dataset for evaluation")
     generate_parser.add_argument(
-        "-G",
-        "--generative-model",
+        "-M",
+        "--model",
         type=exceptions_to_argument_errors(import_llm_model),
         required=True,
-        help="Generative model to use",
+        help="Name of the model to use",
     )
     generate_parser.add_argument(
         "-i",
@@ -226,36 +220,37 @@ def make_parser():
         help="Input file",
     )
     generate_parser.add_argument(
-        "-p",
-        "--prompt",
-        type=lambda fp: open(fp, "r").read(),
+        "--question-prompt-file",
+        type=argparse.FileType("r"),
         required=False,
         help="Question prompt file",
     )
     generate_parser.add_argument(
-        "-n",
-        "--num-questions",
+        "-q",
+        "--queries-count",
+        dest="queries_count",
         type=int,
-        default=1,
-        help="Número de preguntas a generar por documento.",
+        required=False,
+        default=3,
+        help="Number of queries to generate per content.",
     )
     generate_parser.add_argument(
         "-l",
         "--limit",
         type=int,
         default=3,
-        help="Límite máximo de preguntas generadas (buenas y malas) por documento.",
+        help="Maximum number of generated questions (good and bad) per document.",
     )
     generate_parser.add_argument(
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
-        help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
+        help="Path of the output file in jsonl format where the generated questions will be saved.",
     )
     generate_parser.set_defaults(func=run_generate_subcommand)
 
     classify_parser = subparsers.add_parser(
-        "classify", help="Categorize the generated dataset by quality"
+        "classify", help="Categorize the generated questions dataset by quality"
     )
     classify_subparsers = classify_parser.add_subparsers(
         dest="command", title="commands", required=True
@@ -267,9 +262,8 @@ def make_parser():
     classify_cross_encoder_parser.add_argument(
         "-C",
         "--cross-encoder-model",
-        action="append",
         type=exceptions_to_argument_errors(import_cross_encoder),
-        help="Embedding models to use",
+        help="Cross-encoder model to use",
     )
     classify_cross_encoder_parser.add_argument(
         "-i",
@@ -283,7 +277,7 @@ def make_parser():
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
-        help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
+        help="Path of the output file in jsonl format where the classified questions will be saved.",
     )
     classify_cross_encoder_parser.set_defaults(func=run_classify_cross_encoder_subcommand)
 
@@ -309,8 +303,9 @@ def make_parser():
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
-        help="Ruta del fichero de salida en formato jsonlines donde se guardarán las preguntas generadas.",
+        help="Path of the output file in jsonl format where the classified questions will be saved.",
     )
+    classify_cosine_similarity_parser.set_defaults(func=run_classify_cosine_similarity_subcommand)
 
     return parser
 
