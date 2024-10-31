@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from operator import __lt__ as strictly_least
-from operator import __le__ as least_among
-from operator import __gt__ as strictly_greatest
 from operator import __ge__ as greatest_among
+from operator import __gt__ as strictly_greatest
+from operator import __le__ as least_among
+from operator import __lt__ as strictly_least
 
 
-__ALL__ = ["is_best", "strictly_least", "least_among", "strictly_greatest", "greatest_among"]
+__all__ = ["is_best", "strictly_least", "least_among", "strictly_greatest", "greatest_among"]
 
 
 def is_best(distance_fn, comparison_fn, all_documents, question, this_document):
@@ -43,4 +43,3 @@ def format_output(document, good_questions, bad_questions):
         "document": document,
         "questions": {"good": good_questions, "bad": bad_questions},
     }
-

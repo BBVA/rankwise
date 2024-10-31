@@ -42,7 +42,7 @@ def as_jsonlines(fn):
     def _as_jsonlines(cli_args, *args, **kwargs):
         output_file = sys.stdout.buffer if cli_args.output_file is None else cli_args.output_file
         for entry in fn(cli_args, *args, **kwargs):
-            output_file.write(json.dumps(entry).encode("utf-8"))
+            output_file.write(json.dumps(entry, ensure_ascii=False).encode("utf-8"))
             output_file.write(b"\n")
 
     return _as_jsonlines
