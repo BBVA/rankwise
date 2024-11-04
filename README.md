@@ -53,10 +53,16 @@ This command uses the given LLM model to generate the specified number of querie
     API_KEY=xxx rankwise classify cosine-similarity --input dataset.jsonl --embedding-model "azure_openai.AzureOpenAIEmbedding(model='text-embedding-3-large',deployment_name='azure-text-embedding-ada-002',api_version='2023-07-01-preview',azure_endpoint='https://your-azure-endpoint',api_key=ENVVAR('API_KEY'))" --output-file classified_dataset.jsonl
     ```
 
-- Run the `evaluate` command to assess your dataset and obtain quality metrics for the specified embedding model.
+- Run the `evaluate classification` command to evaluate your classification (from the classify command) against a ground truth dataset.
 
 ```bash
-API_KEY=xxx rankwise evaluate -E "azure_openai.AzureOpenAIEmbedding(model='text-embedding-3-large',deployment_name='azure-text-embedding-ada-002',api_version='2023-07-01-preview',azure_endpoint='https://your-azure-endpoint',api_key=ENVVAR('API_KEY'))" -m hit_rate -m mrr --input dataset.jsonl
+rankwise evaluate classification --ground-truth classify_ground_truth.jsonl --classification classified_dataset.jsonl
+```
+
+- Run the `evaluate embedding-model` command to assess your dataset and obtain quality metrics for the specified embedding model.
+
+```bash
+API_KEY=xxx rankwise evaluate embedding-model -E "azure_openai.AzureOpenAIEmbedding(model='text-embedding-3-large',deployment_name='azure-text-embedding-ada-002',api_version='2023-07-01-preview',azure_endpoint='https://your-azure-endpoint',api_key=ENVVAR('API_KEY'))" -m hit_rate -m mrr --input dataset.jsonl
 ```
 
 This command uses the given embedding model to evaluate the input dataset and calculate quality metrics.

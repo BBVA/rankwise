@@ -19,13 +19,26 @@ from functools import partial
 import rankwise.classify.calculations
 import rankwise.classify.cosine_distance.io
 import rankwise.classify.cross_encoder.io
-from rankwise.evaluate.calculations import build_evaluation_report
-from rankwise.evaluate.io import accumulate_evaluation_metrics, build_evaluator
+from rankwise.evaluate.classification.calculations import (
+    build_evaluate_classification_report,
+    calculate_classification_results,
+)
+from rankwise.evaluate.embedding_model.calculations import build_evaluation_report
+from rankwise.evaluate.embedding_model.io import accumulate_evaluation_metrics, build_evaluator
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import (UndefinedEnvVarError, import_cross_encoder,
-                                  import_embedding_model, import_llm_model)
-from rankwise.io import as_jsonlines, read_evaluate_input, read_generate_input
+from rankwise.importer.io import (
+    UndefinedEnvVarError,
+    import_cross_encoder,
+    import_embedding_model,
+    import_llm_model,
+)
+from rankwise.io import (
+    as_jsonlines,
+    read_evaluate_classification_input,
+    read_evaluate_embedding_input,
+    read_json_lines_input,
+)
 
 
 def exceptions_to_argument_errors(import_function):
@@ -49,8 +62,8 @@ def exceptions_to_argument_errors(import_function):
 
 
 @as_jsonlines
-def run_evaluate_subcommand(args):
-    input_data = read_evaluate_input(args.input)
+def run_evaluate_embedding_subcommand(args):
+    input_data = read_evaluate_embedding_input(args.input)
 
     for embedding_model in args.embedding_model:
         evaluate_fn = build_evaluator(
@@ -74,8 +87,17 @@ def run_evaluate_subcommand(args):
 
 
 @as_jsonlines
+def run_evaluate_classification_subcommand(args):
+    ground_truth = read_evaluate_classification_input(args.ground_truth)
+    for file in args.classification:
+        classification = read_evaluate_classification_input(file)
+        results = calculate_classification_results(ground_truth, classification)
+        yield build_evaluate_classification_report(results)
+
+
+@as_jsonlines
 def run_generate_subcommand(args):
-    input_data = read_generate_input(args.input)
+    input_data = read_json_lines_input(args.input)
 
     if args.question_prompt_file is None:
         prompt = DEFAULT_QUESTION_PROMPT
@@ -97,7 +119,7 @@ def run_generate_subcommand(args):
 
 @as_jsonlines
 def run_classify_cross_encoder_subcommand(args):
-    input_data = read_generate_input(args.input)
+    input_data = read_json_lines_input(args.input)
 
     cross_encoder_distance = partial(
         rankwise.classify.cross_encoder.io.calculate_distance,
@@ -127,7 +149,7 @@ def run_classify_cross_encoder_subcommand(args):
 
 @as_jsonlines
 def run_classify_cosine_similarity_subcommand(args):
-    input_data = read_generate_input(args.input)
+    input_data = read_json_lines_input(args.input)
 
     embedding_functions = [model.instance.get_text_embedding for model in args.embedding_model]
     calculate_average_cosine_distance = (
@@ -159,16 +181,21 @@ def make_parser():
     parser = argparse.ArgumentParser(description="Rankwise: A tool for evaluating embedding models")
     subparsers = parser.add_subparsers(dest="command", title="commands", required=True)
 
-    # Evaluate
-    evaluate_parser = subparsers.add_parser("evaluate", help="Evaluate embedding models")
-    evaluate_parser.add_argument(
+    evaluate_parser = subparsers.add_parser("evaluate", help="Evaluate operations")
+    evaluate_subparsers = evaluate_parser.add_subparsers(
+        dest="command", title="commands", required=True
+    )
+    evaluate_embedding_parser = evaluate_subparsers.add_parser(
+        "embedding-models", help="Evaluate embedding models"
+    )
+    evaluate_embedding_parser.add_argument(
         "-E",
         "--embedding-model",
         action="append",
         type=exceptions_to_argument_errors(import_embedding_model),
         help="Embedding model to use",
     )
-    evaluate_parser.add_argument(
+    evaluate_embedding_parser.add_argument(
         "-i",
         "--input",
         type=argparse.FileType("r"),
@@ -176,7 +203,7 @@ def make_parser():
         default=sys.stdin,
         help="Input file",
     )
-    evaluate_parser.add_argument(
+    evaluate_embedding_parser.add_argument(
         "-k",
         "--top-k",
         dest="top_k",
@@ -185,7 +212,7 @@ def make_parser():
         default=10,
         help="Top K results to consider",
     )
-    evaluate_parser.add_argument(
+    evaluate_embedding_parser.add_argument(
         "-m",
         "--metrics",
         action="append",
@@ -195,13 +222,40 @@ def make_parser():
         default=["hit_rate", "mrr"],
         help="Metrics to calculate",
     )
-    evaluate_parser.add_argument(
+    evaluate_embedding_parser.add_argument(
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
         help="Path of the output file in jsonl format where the evaluations will be saved.",
     )
-    evaluate_parser.set_defaults(func=run_evaluate_subcommand)
+    evaluate_embedding_parser.set_defaults(func=run_evaluate_embedding_subcommand)
+
+    evaluate_classification_parser = evaluate_subparsers.add_parser(
+        "classification", help="Evaluate given classifications against ground truth"
+    )
+    evaluate_classification_parser.add_argument(
+        "-g",
+        "--ground-truth",
+        type=argparse.FileType("r"),
+        required=False,
+        default=sys.stdin,
+        help="Input file with the ground truth of the classification",
+    )
+    evaluate_classification_parser.add_argument(
+        "-c",
+        "--classification",
+        action="append",
+        type=argparse.FileType("r"),
+        required=True,
+        help="Classification file to evaluate",
+    )
+    evaluate_classification_parser.add_argument(
+        "-o",
+        "--output-file",
+        type=argparse.FileType("wb"),
+        help="Path of the output file in jsonl format where the evaluations will be saved.",
+    )
+    evaluate_classification_parser.set_defaults(func=run_evaluate_classification_subcommand)
 
     generate_parser = subparsers.add_parser("generate", help="Generate a dataset for evaluation")
     generate_parser.add_argument(
@@ -277,7 +331,9 @@ def make_parser():
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
-        help="Path of the output file in jsonl format where the classified questions will be saved.",
+        help=(
+            "Path of the output file in jsonl format where the classified questions will be saved."
+        ),
     )
     classify_cross_encoder_parser.set_defaults(func=run_classify_cross_encoder_subcommand)
 
@@ -303,7 +359,9 @@ def make_parser():
         "-o",
         "--output-file",
         type=argparse.FileType("wb"),
-        help="Path of the output file in jsonl format where the classified questions will be saved.",
+        help=(
+            "Path of the output file in jsonl format where the classified questions will be saved."
+        ),
     )
     classify_cosine_similarity_parser.set_defaults(func=run_classify_cosine_similarity_subcommand)
 

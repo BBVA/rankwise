@@ -11,21 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from dataclasses import dataclass
-
-
-@dataclass
-class InputData:
-    queries_with_expected_sorted_content: dict[
-        str, list[str]
-    ]  # {"query1": ["contentA", "contentB"], "query2": ["contentC"]}
-    accumulated_content: set[str]  # {"contentA", "contentC", "contentB"}
-
-
-@dataclass
-class ClassificationData:
-    good_questions_with_document: dict[
-        str, str
-    ]  # {"question1": "documentA", "question2": "documentB"}
-    bad_questions: list[str]

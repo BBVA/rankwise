@@ -15,7 +15,7 @@
 from collections import defaultdict
 from warnings import warn
 
-from rankwise.evaluate.data import metrics_statistics
+from rankwise.evaluate.embedding_model.data import metrics_statistics
 
 
 def _calculate_evaluation_metrics_statistics(metrics):

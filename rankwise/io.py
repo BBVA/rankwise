@@ -16,10 +16,14 @@ import json
 import sys
 from functools import wraps
 
-from rankwise.data import InputData
+from rankwise.data import ClassificationData, InputData
 
 
-def read_evaluate_input(file):
+def read_json_lines_input(file):
+    return list(json.loads(line) for line in file)
+
+
+def read_evaluate_embedding_input(file):
     accumulated_content = set()
     queries_with_expected_sorted_content = dict()
     for line in file:
@@ -33,8 +37,18 @@ def read_evaluate_input(file):
     )
 
 
-def read_generate_input(file):
-    return list(json.loads(line) for line in file)
+def read_evaluate_classification_input(file):
+    data = read_json_lines_input(file)
+    good_questions_with_document = {
+        good_question: item["document"]
+        for item in data
+        for good_question in item["questions"]["good"]
+    }
+    bad_questions = [bad_question for item in data for bad_question in item["questions"]["bad"]]
+
+    return ClassificationData(
+        good_questions_with_document=good_questions_with_document, bad_questions=bad_questions
+    )
 
 
 def as_jsonlines(fn):

@@ -16,7 +16,7 @@ from llama_index.core import VectorStoreIndex
 from llama_index.core.evaluation import RetrieverEvaluator
 
 from rankwise.calculations import content_id, content_to_node
-from rankwise.evaluate.calculations import Appender
+from rankwise.evaluate.embedding_model.calculations import Appender
 
 
 def build_evaluator(embed_model, top_k, contents, metrics):
