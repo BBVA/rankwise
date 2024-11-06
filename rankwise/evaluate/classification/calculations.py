@@ -49,7 +49,7 @@ def calculate_classification_results(
     return results
 
 
-def build_evaluate_classification_report(results):
+def build_evaluate_classification_report(filename, results):
     accuracy = (results["true_positive"] + results["true_negative"]) / sum(results.values())
     precision = results["true_positive"] / (results["true_positive"] + results["false_positive"])
     recall = results["true_positive"] / (results["true_positive"] + results["false_negative"])
@@ -57,6 +57,7 @@ def build_evaluate_classification_report(results):
     f1 = 2 * precision * recall / (precision + recall)
     f2 = 5 * precision * recall / (4 * precision + recall)
     return {
+        "filename": filename,
         "confusion_matrix": results,
         "accuracy": accuracy,
         "precision": precision,

@@ -20,25 +20,17 @@ import rankwise.classify.calculations
 import rankwise.classify.cosine_distance.io
 import rankwise.classify.cross_encoder.io
 from rankwise.evaluate.classification.calculations import (
-    build_evaluate_classification_report,
-    calculate_classification_results,
-)
-from rankwise.evaluate.embedding_model.calculations import build_evaluation_report
-from rankwise.evaluate.embedding_model.io import accumulate_evaluation_metrics, build_evaluator
+    build_evaluate_classification_report, calculate_classification_results)
+from rankwise.evaluate.embedding_model.calculations import \
+    build_evaluation_report
+from rankwise.evaluate.embedding_model.io import (
+    accumulate_evaluation_metrics, build_evaluator)
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import (
-    UndefinedEnvVarError,
-    import_cross_encoder,
-    import_embedding_model,
-    import_llm_model,
-)
-from rankwise.io import (
-    as_jsonlines,
-    read_evaluate_classification_input,
-    read_evaluate_embedding_input,
-    read_json_lines_input,
-)
+from rankwise.importer.io import (UndefinedEnvVarError, import_cross_encoder,
+                                  import_embedding_model, import_llm_model)
+from rankwise.io import (as_jsonlines, read_evaluate_classification_input,
+                         read_evaluate_embedding_input, read_json_lines_input)
 
 
 def exceptions_to_argument_errors(import_function):
@@ -89,10 +81,11 @@ def run_evaluate_embedding_subcommand(args):
 @as_jsonlines
 def run_evaluate_classification_subcommand(args):
     ground_truth = read_evaluate_classification_input(args.ground_truth)
-    for file in args.classification:
-        classification = read_evaluate_classification_input(file)
-        results = calculate_classification_results(ground_truth, classification)
-        yield build_evaluate_classification_report(results)
+    for filepath in args.classification:
+        with open(filepath, "r") as file:
+            classification = read_evaluate_classification_input(file)
+            results = calculate_classification_results(ground_truth, classification)
+            yield build_evaluate_classification_report(filepath, results)
 
 
 @as_jsonlines
@@ -245,9 +238,9 @@ def make_parser():
         "-c",
         "--classification",
         action="append",
-        type=argparse.FileType("r"),
+        type=str,
         required=True,
-        help="Classification file to evaluate",
+        help="Classification filepath to evaluate",
     )
     evaluate_classification_parser.add_argument(
         "-o",
