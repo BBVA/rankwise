@@ -124,7 +124,8 @@ def run_classify_cross_encoder_subcommand(args):
     is_best_according_to_cross_encoder = partial(
         rankwise.classify.calculations.is_best,
         cross_encoder_distance,
-        rankwise.classify.calculations.strictly_greatest,
+        rankwise.classify.calculations.strictly_greatest_with_threshold_fn(0.03),
+        rankwise.classify.calculations.normalize_min_max,
         all_documents,
     )
     for row in input_data:
@@ -154,7 +155,8 @@ def run_classify_cosine_similarity_subcommand(args):
     is_best_according_to_cosine_similarity = partial(
         rankwise.classify.calculations.is_best,
         calculate_average_cosine_distance,
-        rankwise.classify.calculations.strictly_greatest,
+        rankwise.classify.calculations.strictly_greatest_with_threshold_fn(0.03),
+        rankwise.classify.calculations.normalize_min_max,
         all_documents,
     )
     for row in input_data:
