@@ -22,8 +22,7 @@ def build_distance_function(embedding_functions):
     multiple embedding models.
     """
 
-    from sklearn.metrics.pairwise import \
-        cosine_similarity  # Heavy import, so we import it here
+    from sklearn.metrics.pairwise import cosine_similarity  # Heavy import, so we import it here
 
     embedding_functions = [cache(fn) for fn in embedding_functions]
 
