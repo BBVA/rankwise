@@ -910,6 +910,7 @@ files = [
 ]
 
 [package.dependencies]
+aiohttp = {version = "*", optional = true, markers = "extra == \"inference\""}
 filelock = "*"
 fsspec = ">=2023.5.0"
 packaging = ">=20.9"
@@ -1105,6 +1106,22 @@ files = [
 llama-index-core = ">=0.11.0,<0.12.0"
 llama-index-embeddings-openai = ">=0.2.3,<0.3.0"
 llama-index-llms-azure-openai = ">=0.2.0,<0.3.0"
+
+[[package]]
+name = "llama-index-embeddings-huggingface"
+version = "0.3.1"
+description = "llama-index embeddings huggingface integration"
+optional = false
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "llama_index_embeddings_huggingface-0.3.1-py3-none-any.whl", hash = "sha256:71708240b1aec183c80f20d531b39a75d0cce774586e11bb0798f3ecb270749c"},
+    {file = "llama_index_embeddings_huggingface-0.3.1.tar.gz", hash = "sha256:7aef6324a19576e6b95bfe927c3bd4fc1c5725edce9f26b4e5d2eefa27c02fdb"},
+]
+
+[package.dependencies]
+huggingface-hub = {version = ">=0.19.0", extras = ["inference"]}
+llama-index-core = ">=0.11.0,<0.12.0"
+sentence-transformers = ">=2.6.1"
 
 [[package]]
 name = "llama-index-embeddings-ollama"
@@ -3289,4 +3306,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "33bcec5d16003f57ace5e1285ad43e2021b5e8b420a421cbc32b2c1d223918f2"
+content-hash = "593be1e541e2813813f82a26c13b3556f2790eb4f4f57f013b144881308cf4d9"
