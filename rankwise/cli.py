@@ -132,7 +132,7 @@ def run_classify_cross_encoder_subcommand(args):
     is_best_according_to_cross_encoder = partial(
         rankwise.classify.calculations.is_best,
         cross_encoder_distance,
-        rankwise.classify.calculations.strictly_greatest_with_threshold_fn(0.03),
+        rankwise.classify.calculations.strictly_greatest_with_threshold_fn(args.threshold),
         rankwise.classify.calculations.normalize_min_max,
         all_documents,
     )
@@ -163,7 +163,7 @@ def run_classify_cosine_similarity_subcommand(args):
     is_best_according_to_cosine_similarity = partial(
         rankwise.classify.calculations.is_best,
         calculate_average_cosine_distance,
-        rankwise.classify.calculations.strictly_greatest_with_threshold_fn(0.03),
+        rankwise.classify.calculations.strictly_greatest_with_threshold_fn(args.threshold),
         rankwise.classify.calculations.normalize_min_max,
         all_documents,
     )
@@ -338,6 +338,14 @@ def make_parser():
             "Path of the output file in jsonl format where the classified questions will be saved."
         ),
     )
+    classify_cross_encoder_parser.add_argument(
+        "-t",
+        "--threshold",
+        type=float,
+        required=False,
+        default=0,
+        help="Relative threshold between the best question and the rest to consider it good.",
+    )
     classify_cross_encoder_parser.set_defaults(func=run_classify_cross_encoder_subcommand)
 
     classify_cosine_similarity_parser = classify_subparsers.add_parser(
@@ -365,6 +373,14 @@ def make_parser():
         help=(
             "Path of the output file in jsonl format where the classified questions will be saved."
         ),
+    )
+    classify_cosine_similarity_parser.add_argument(
+        "-t",
+        "--threshold",
+        type=float,
+        required=False,
+        default=0,
+        help="Relative threshold between the best question and the rest to consider it good.",
     )
     classify_cosine_similarity_parser.set_defaults(func=run_classify_cosine_similarity_subcommand)
 
