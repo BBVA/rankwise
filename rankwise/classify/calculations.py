@@ -17,8 +17,8 @@ from operator import __gt__ as strictly_greatest
 from operator import __le__ as least_among
 from operator import __lt__ as strictly_least
 
-
 __all__ = ["is_best", "strictly_least", "least_among", "strictly_greatest", "greatest_among"]
+
 
 def strictly_greatest_with_threshold_fn(threshold: float):
     def strictly_greatest(a, b):
@@ -27,12 +27,20 @@ def strictly_greatest_with_threshold_fn(threshold: float):
     return strictly_greatest
 
 
-def normalize_min_max(distance_with_this_document, distance_with_other_documents) -> tuple[float, list[float]]:
+def normalize_min_max(
+    distance_with_this_document, distance_with_other_documents
+) -> tuple[float, list[float]]:
     from sklearn.preprocessing import minmax_scale
-    res = minmax_scale([[distance_with_this_document] + distance_with_other_documents], axis=1).tolist()
+
+    res = minmax_scale(
+        [[distance_with_this_document] + distance_with_other_documents], axis=1
+    ).tolist()
     return (res[0][0], res[0][1:])
 
-def normalize_identity(distance_with_this_document, distance_with_other_documents) -> tuple[float, list[float]]:
+
+def normalize_identity(
+    distance_with_this_document, distance_with_other_documents
+) -> tuple[float, list[float]]:
     return distance_with_this_document, distance_with_other_documents
 
 
@@ -45,13 +53,16 @@ def is_best(distance_fn, comparison_fn, normalize_fn, all_documents, question, t
 
     other_documents = all_documents - set([this_document])
     distance_with_this_document = distance_fn(question, this_document)
-    distance_with_other_documents = (distance_fn(question, another_document) for another_document in other_documents)
+    distance_with_other_documents = list(
+        (distance_fn(question, another_document) for another_document in other_documents)
+    )
 
     if not normalize_fn:
         normalize_fn = normalize_identity
 
     distance_with_this_document_normalized, distance_with_other_documents_normalized = normalize_fn(
-        distance_with_this_document, distance_with_other_documents,
+        distance_with_this_document,
+        distance_with_other_documents,
     )
 
     return all(

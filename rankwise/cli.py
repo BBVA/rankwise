@@ -20,17 +20,25 @@ import rankwise.classify.calculations
 import rankwise.classify.cosine_distance.io
 import rankwise.classify.cross_encoder.io
 from rankwise.evaluate.classification.calculations import (
-    build_evaluate_classification_report, calculate_classification_results)
-from rankwise.evaluate.embedding_model.calculations import \
-    build_evaluation_report
-from rankwise.evaluate.embedding_model.io import (
-    accumulate_evaluation_metrics, build_evaluator)
+    build_evaluate_classification_report,
+    calculate_classification_results,
+)
+from rankwise.evaluate.embedding_model.calculations import build_evaluation_report
+from rankwise.evaluate.embedding_model.io import accumulate_evaluation_metrics, build_evaluator
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import (UndefinedEnvVarError, import_cross_encoder,
-                                  import_embedding_model, import_llm_model)
-from rankwise.io import (as_jsonlines, read_evaluate_classification_input,
-                         read_evaluate_embedding_input, read_json_lines_input)
+from rankwise.importer.io import (
+    UndefinedEnvVarError,
+    import_cross_encoder,
+    import_embedding_model,
+    import_llm_model,
+)
+from rankwise.io import (
+    as_jsonlines,
+    read_evaluate_classification_input,
+    read_evaluate_embedding_input,
+    read_json_lines_input,
+)
 
 
 def exceptions_to_argument_errors(import_function):
