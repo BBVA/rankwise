@@ -127,13 +127,19 @@ def run_classify_cross_encoder_subcommand(args):
         args.cross_encoder_model.instance,
     )
 
+    normalize_fn = (
+        rankwise.classify.calculations.normalize_min_max
+        if args.threshold
+        else rankwise.classify.calculations.normalize_identity
+    )
+
     # input_data :: {"document": "DocA", "questions": ["Q1", "Q2"]}
     all_documents = set(row["document"] for row in input_data)
     is_best_according_to_cross_encoder = partial(
         rankwise.classify.calculations.is_best,
         cross_encoder_distance,
         rankwise.classify.calculations.strictly_greatest_with_threshold_fn(args.threshold),
-        rankwise.classify.calculations.normalize_min_max,
+        normalize_fn,
         all_documents,
     )
     for row in input_data:
@@ -158,13 +164,19 @@ def run_classify_cosine_similarity_subcommand(args):
         rankwise.classify.cosine_distance.io.build_distance_function(embedding_functions)
     )
 
+    normalize_fn = (
+        rankwise.classify.calculations.normalize_min_max
+        if args.threshold
+        else rankwise.classify.calculations.normalize_identity
+    )
+
     # input_data :: {"document": "DocA", "questions": ["Q1", "Q2"]}
     all_documents = set(row["document"] for row in input_data)
     is_best_according_to_cosine_similarity = partial(
         rankwise.classify.calculations.is_best,
         calculate_average_cosine_distance,
         rankwise.classify.calculations.strictly_greatest_with_threshold_fn(args.threshold),
-        rankwise.classify.calculations.normalize_min_max,
+        normalize_fn,
         all_documents,
     )
     for row in input_data:
