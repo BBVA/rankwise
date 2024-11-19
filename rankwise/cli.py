@@ -109,7 +109,7 @@ def run_generate_subcommand(args):
         generation = generate_dataset(
             args.model.instance,
             [document],
-            args.queries_count,
+            args.questions_count,
             prompt,
         )
         yield {
@@ -278,7 +278,7 @@ def make_parser():
         "--model",
         type=exceptions_to_argument_errors(import_llm_model),
         required=True,
-        help="Name of the model to use",
+        help="Class instance of the model to use",
     )
     generate_parser.add_argument(
         "-i",
@@ -286,7 +286,7 @@ def make_parser():
         type=argparse.FileType("r"),
         required=False,
         default=sys.stdin,
-        help="Input file",
+        help="Input file with the content to generate questions from, one per row",
     )
     generate_parser.add_argument(
         "--question-prompt-file",
@@ -296,19 +296,12 @@ def make_parser():
     )
     generate_parser.add_argument(
         "-q",
-        "--queries-count",
-        dest="queries_count",
+        "--questions-count",
+        dest="questions_count",
         type=int,
         required=False,
         default=3,
-        help="Number of queries to generate per content.",
-    )
-    generate_parser.add_argument(
-        "-l",
-        "--limit",
-        type=int,
-        default=3,
-        help="Maximum number of generated questions (good and bad) per document.",
+        help="Number of questions to generate per content",
     )
     generate_parser.add_argument(
         "-o",
