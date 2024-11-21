@@ -25,4 +25,4 @@ def generate_dataset(model, contents, queries_count, question_gen_query):
         num_questions_per_chunk=queries_count,
         question_gen_query=question_gen_query,
     )
-    return dataset_generator.generate_dataset_from_nodes()
+    return dataset_generator.generate_questions_from_nodes()
