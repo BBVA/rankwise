@@ -11,34 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import argparse
 import sys
 from functools import partial
 
+from tqdm import tqdm
+
 import rankwise.classify.calculations
 import rankwise.classify.cosine_distance.io
 import rankwise.classify.cross_encoder.io
+from rankwise.entropy.calculations import calculate_isoscore
 from rankwise.evaluate.classification.calculations import (
-    build_evaluate_classification_report,
-    calculate_classification_results,
-)
-from rankwise.evaluate.embedding_model.calculations import build_evaluation_report
-from rankwise.evaluate.embedding_model.io import accumulate_evaluation_metrics, build_evaluator
+    build_evaluate_classification_report, calculate_classification_results)
+from rankwise.evaluate.embedding_model.calculations import \
+    build_evaluation_report
+from rankwise.evaluate.embedding_model.io import (
+    accumulate_evaluation_metrics, build_evaluator)
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import (
-    UndefinedEnvVarError,
-    import_cross_encoder,
-    import_embedding_model,
-    import_llm_model,
-)
-from rankwise.io import (
-    as_jsonlines,
-    read_evaluate_classification_input,
-    read_evaluate_embedding_input,
-    read_json_lines_input,
-)
+from rankwise.importer.io import (UndefinedEnvVarError, import_cross_encoder,
+                                  import_embedding_model, import_llm_model)
+from rankwise.io import (as_jsonlines, get_document_embeddings,
+                         read_evaluate_classification_input,
+                         read_evaluate_embedding_input, read_json_lines_input)
 
 
 def exceptions_to_argument_errors(import_function):
@@ -59,6 +54,19 @@ def exceptions_to_argument_errors(import_function):
             )
 
     return _import_with_argument_errors
+
+
+@as_jsonlines
+def run_calculate_isoscore_subcommand(args):
+    input_data = read_json_lines_input(args.input)
+    embeddings = get_document_embeddings(
+        input_data,
+        args.embedding_model.instance.get_text_embedding,
+        max_workers=args.max_workers,
+        show_progress=args.show_progress,
+    )
+    isoscore = calculate_isoscore(embeddings)
+    yield {"iso-score": isoscore}
 
 
 @as_jsonlines
@@ -195,6 +203,54 @@ def run_classify_cosine_similarity_subcommand(args):
 def make_parser():
     parser = argparse.ArgumentParser(description="Rankwise: A tool for evaluating embedding models")
     subparsers = parser.add_subparsers(dest="command", title="commands", required=True)
+
+    calculate_entropy_parser = subparsers.add_parser(
+        "calculate-entropy", help="Calculate entropy operations"
+    )
+    calculate_entropy_subparsers = calculate_entropy_parser.add_subparsers(
+        dest="command", title="commands", required=True
+    )
+    isoscore_parser = calculate_entropy_subparsers.add_parser(
+        "iso-score", help="Calculate the isotropy score of the given dataset of documents"
+    )
+    isoscore_parser.add_argument(
+        "-p",
+        "--show-progress",
+        action=argparse.BooleanOptionalAction,
+        required=False,
+        default=False,
+        help="Show progress bar",
+    )
+    isoscore_parser.add_argument(
+        "-w",
+        "--max-workers",
+        type=int,
+        required=False,
+        default=5,
+        help="Number of workers to use for calculating the embeddings",
+    )
+    isoscore_parser.add_argument(
+        "-E",
+        "--embedding-model",
+        required=True,
+        type=exceptions_to_argument_errors(import_embedding_model),
+        help="Embedding model to use",
+    )
+    isoscore_parser.add_argument(
+        "-i",
+        "--input",
+        type=argparse.FileType("r"),
+        required=False,
+        default=sys.stdin,
+        help="Input file with documents to calculate the isotropy score",
+    )
+    isoscore_parser.add_argument(
+        "-o",
+        "--output-file",
+        type=argparse.FileType("wb"),
+        help="Path of the output file in jsonl format where the result will be saved.",
+    )
+    isoscore_parser.set_defaults(func=run_calculate_isoscore_subcommand)
 
     evaluate_parser = subparsers.add_parser("evaluate", help="Evaluate operations")
     evaluate_subparsers = evaluate_parser.add_subparsers(

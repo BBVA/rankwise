@@ -14,7 +14,11 @@
 
 import json
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
+
+from tqdm import tqdm
 
 from rankwise.data import ClassificationData, InputData
 
@@ -60,3 +64,22 @@ def as_jsonlines(fn):
             output_file.write(b"\n")
 
     return _as_jsonlines
+
+
+def get_document_embeddings(documents, embedding_function, max_workers=5, show_progress=False):
+    counter_lock = threading.Lock()
+
+    def _embedding_function_with_progress(document, pbar):
+        embedding = embedding_function(document)
+        with counter_lock:
+            pbar.update(1)
+        return embedding
+
+    pbar = tqdm(total=len(documents), disable=not show_progress)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        embeddings = list(
+            executor.map(lambda doc: _embedding_function_with_progress(doc, pbar), documents)
+        )
+    return embeddings
+

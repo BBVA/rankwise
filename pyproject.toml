@@ -18,6 +18,8 @@ sentence-transformers = "^3.2.1"
 torch = "~2.2.0"
 llama-index-embeddings-huggingface = "^0.3.1"
 matplotlib = "^3.9.2"
+isoscore = "^2.0.1"
+tqdm = "^4.67.1"
 
 [tool.poetry.scripts]
 rankwise = "rankwise.cli:main"

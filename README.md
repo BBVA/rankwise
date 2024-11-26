@@ -33,6 +33,12 @@ poetry install
 poetry shell
 ```
 
+- Run the `calculate-entropy iso-score` command to calculate the [isotropy score](https://github.com/bcbi-edu/p_eickhoff_isoscore) of a dataset.
+
+```bash
+rankwise calculate-entropy iso-score --input dataset.jsonl -E "huggingface.HuggingFaceEmbedding('sentence-transformers/all-MiniLM-L12-v2')" -p
+```
+
 - Run the `generate` command to create a dataset containing questions and their related documents in JSONL format from a `data.jsonl` file with one document (a json encoded string) per line.
 
 ```bash
