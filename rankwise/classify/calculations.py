@@ -44,30 +44,30 @@ def normalize_identity(
     return distance_with_this_document, distance_with_other_documents
 
 
-def is_best(distance_fn, comparison_fn, normalize_fn, all_documents, question, this_document):
+def is_best(score_fn, comparison_fn, normalize_fn, all_documents, question, this_document):
     """
     Returns true if the query is best suited for the document according
-    to the distance function and comparison function taking into account
+    to the score function and comparison function taking into account
     all the documents in the set.
     """
 
     other_documents = all_documents - set([this_document])
-    distance_with_this_document = distance_fn(question, this_document)
-    distance_with_other_documents = list(
-        (distance_fn(question, another_document) for another_document in other_documents)
+    score_with_this_document = score_fn(question, this_document)
+    score_with_other_documents = list(
+        (score_fn(question, another_document) for another_document in other_documents)
     )
 
     if not normalize_fn:
         normalize_fn = normalize_identity
 
-    distance_with_this_document_normalized, distance_with_other_documents_normalized = normalize_fn(
-        distance_with_this_document,
-        distance_with_other_documents,
+    score_with_this_document_normalized, score_with_other_documents_normalized = normalize_fn(
+        score_with_this_document,
+        score_with_other_documents,
     )
 
     return all(
-        comparison_fn(distance_with_this_document_normalized, distance_with_other_document)
-        for distance_with_other_document in distance_with_other_documents_normalized
+        comparison_fn(score_with_this_document_normalized, score_with_other_document)
+        for score_with_other_document in score_with_other_documents_normalized
     )
 
 

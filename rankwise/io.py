@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import sys
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 
-from tqdm import tqdm
+from tqdm.asyncio import tqdm as tqdm_asyncio
 
 from rankwise.data import ClassificationData, InputData
 
@@ -67,19 +66,19 @@ def as_jsonlines(fn):
 
 
 def get_document_embeddings(documents, embedding_function, max_workers=5, show_progress=False):
-    counter_lock = threading.Lock()
+    pbar = tqdm_asyncio(total=len(documents), disable=not show_progress)
+    semaphore = asyncio.Semaphore(max_workers)
 
-    def _embedding_function_with_progress(document, pbar):
-        embedding = embedding_function(document)
-        with counter_lock:
+    async def _embedding_function_with_progress(document):
+        async with semaphore:
+            embedding = await embedding_function(document)
             pbar.update(1)
-        return embedding
+            return embedding
 
-    pbar = tqdm(total=len(documents), disable=not show_progress)
+    async def run_tasks():
+        tasks = [asyncio.create_task(_embedding_function_with_progress(doc)) for doc in documents]
+        embeddings = await asyncio.gather(*tasks)
+        pbar.close()
+        return embeddings
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        embeddings = list(
-            executor.map(lambda doc: _embedding_function_with_progress(doc, pbar), documents)
-        )
-    return embeddings
-
+    return asyncio.run(run_tasks())
