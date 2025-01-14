@@ -16,15 +16,16 @@ from functools import lru_cache as cache
 from statistics import mean
 
 
-def build_distance_function(embedding_functions):
+def build_distance_function(embedding_functions, cache_size=128):
     """
     Builds a function that calculates the average cosine distance between two texts using
     multiple embedding models.
     """
 
-    from sklearn.metrics.pairwise import cosine_similarity  # Heavy import, so we import it here
+    from sklearn.metrics.pairwise import \
+        cosine_similarity  # Heavy import, so we import it here
 
-    embedding_functions = [cache(fn) for fn in embedding_functions]
+    embedding_functions = [cache(cache_size)(fn) for fn in embedding_functions]
 
     def get_cosine_similarity(e1, e2):
         return cosine_similarity([e1], [e2])[0][0]

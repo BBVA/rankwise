@@ -1118,6 +1118,17 @@ files = [
 all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
 
 [[package]]
+name = "isoscore"
+version = "2.0.1"
+description = "IsoScore is the first tool available in the literature that accurately measures isotropy in embedding space."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "IsoScore-2.0.1-py3-none-any.whl", hash = "sha256:1aff463cf13ab366df2831d3f4b37250c12b65da5523522df49f9cf8ebbec0a9"},
+    {file = "IsoScore-2.0.1.tar.gz", hash = "sha256:61997ebaaa47e32ad11b54362453b901d142f9611fd57df3c0bbc13fdc140b39"},
+]
+
+[[package]]
 name = "jinja2"
 version = "3.1.5"
 description = "A very fast and expressive template engine."
@@ -3382,20 +3393,21 @@ optree = ["optree (>=0.9.1)"]
 
 [[package]]
 name = "tqdm"
-version = "4.66.5"
+version = "4.67.1"
 description = "Fast, Extensible Progress Meter"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "tqdm-4.66.5-py3-none-any.whl", hash = "sha256:90279a3770753eafc9194a0364852159802111925aa30eb3f9d85b0e805ac7cd"},
-    {file = "tqdm-4.66.5.tar.gz", hash = "sha256:e1020aef2e5096702d8a025ac7d16b1577279c9d63f8375b63083e9a5f0fcbad"},
+    {file = "tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2"},
+    {file = "tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2"},
 ]
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [package.extras]
-dev = ["pytest (>=6)", "pytest-cov", "pytest-timeout", "pytest-xdist"]
+dev = ["nbval", "pytest (>=6)", "pytest-asyncio (>=0.24)", "pytest-cov", "pytest-timeout"]
+discord = ["requests"]
 notebook = ["ipywidgets (>=6)"]
 slack = ["slack-sdk"]
 telegram = ["requests"]
@@ -3690,4 +3702,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "7b98d9e32c9ecb3c8f8b87293fbe294055d61db804062122f5d4d5d79760f663"
+content-hash = "828bd5b3365137857b8ba8210ddb89861f948a67b10c8fa893f7254acb82c8db"

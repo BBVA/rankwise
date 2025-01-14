@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import sys
 from functools import wraps
+
+from tqdm.asyncio import tqdm as tqdm_asyncio
 
 from rankwise.data import ClassificationData, InputData
 
@@ -60,3 +63,22 @@ def as_jsonlines(fn):
             output_file.write(b"\n")
 
     return _as_jsonlines
+
+
+def get_document_embeddings(documents, embedding_function, max_workers=5, show_progress=False):
+    pbar = tqdm_asyncio(total=len(documents), disable=not show_progress)
+    semaphore = asyncio.Semaphore(max_workers)
+
+    async def _embedding_function_with_progress(document):
+        async with semaphore:
+            embedding = await embedding_function(document)
+            pbar.update(1)
+            return embedding
+
+    async def run_tasks():
+        tasks = [asyncio.create_task(_embedding_function_with_progress(doc)) for doc in documents]
+        embeddings = await asyncio.gather(*tasks)
+        pbar.close()
+        return embeddings
+
+    return asyncio.run(run_tasks())

@@ -11,34 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import argparse
 import sys
 from functools import partial
 
+from tqdm import tqdm
+
 import rankwise.classify.calculations
 import rankwise.classify.cosine_distance.io
 import rankwise.classify.cross_encoder.io
+from rankwise.entropy.calculations import calculate_isoscore
 from rankwise.evaluate.classification.calculations import (
-    build_evaluate_classification_report,
-    calculate_classification_results,
-)
-from rankwise.evaluate.embedding_model.calculations import build_evaluation_report
-from rankwise.evaluate.embedding_model.io import accumulate_evaluation_metrics, build_evaluator
+    build_evaluate_classification_report, calculate_classification_results)
+from rankwise.evaluate.embedding_model.calculations import \
+    build_evaluation_report
+from rankwise.evaluate.embedding_model.io import (
+    accumulate_evaluation_metrics, build_evaluator)
 from rankwise.generate.data import DEFAULT_QUESTION_PROMPT
 from rankwise.generate.io import generate_dataset
-from rankwise.importer.io import (
-    UndefinedEnvVarError,
-    import_cross_encoder,
-    import_embedding_model,
-    import_llm_model,
-)
-from rankwise.io import (
-    as_jsonlines,
-    read_evaluate_classification_input,
-    read_evaluate_embedding_input,
-    read_json_lines_input,
-)
+from rankwise.importer.io import (UndefinedEnvVarError, import_cross_encoder,
+                                  import_embedding_model, import_llm_model)
+from rankwise.io import (as_jsonlines, get_document_embeddings,
+                         read_evaluate_classification_input,
+                         read_evaluate_embedding_input, read_json_lines_input)
 
 
 def exceptions_to_argument_errors(import_function):
@@ -62,6 +57,19 @@ def exceptions_to_argument_errors(import_function):
 
 
 @as_jsonlines
+def run_calculate_isoscore_subcommand(args):
+    input_data = read_json_lines_input(args.input)
+    embeddings = get_document_embeddings(
+        input_data,
+        args.embedding_model.instance.aget_text_embedding,
+        max_workers=args.max_workers,
+        show_progress=args.show_progress,
+    )
+    isoscore = calculate_isoscore(embeddings)
+    yield {"iso-score": isoscore}
+
+
+@as_jsonlines
 def run_evaluate_embedding_subcommand(args):
     input_data = read_evaluate_embedding_input(args.input)
 
@@ -73,7 +81,10 @@ def run_evaluate_embedding_subcommand(args):
             args.metrics,
         )
         accumulated_metrics = accumulate_evaluation_metrics(
-            evaluate_fn, input_data.queries_with_expected_sorted_content
+            evaluate_fn,
+            input_data.queries_with_expected_sorted_content,
+            max_workers=args.max_workers,
+            show_progress=args.show_progress,
         )
         evaluation_report = build_evaluation_report(
             accumulated_metrics,
@@ -159,9 +170,14 @@ def run_classify_cross_encoder_subcommand(args):
 def run_classify_cosine_similarity_subcommand(args):
     input_data = read_json_lines_input(args.input)
 
+    all_documents = set(row["document"] for row in input_data)
+    all_questions = set(question for row in input_data for question in row["questions"])
+
     embedding_functions = [model.instance.get_text_embedding for model in args.embedding_model]
     calculate_average_cosine_distance = (
-        rankwise.classify.cosine_distance.io.build_distance_function(embedding_functions)
+        rankwise.classify.cosine_distance.io.build_distance_function(
+            embedding_functions, len(all_documents) + len(all_questions)
+        )
     )
 
     normalize_fn = (
@@ -171,7 +187,6 @@ def run_classify_cosine_similarity_subcommand(args):
     )
 
     # input_data :: {"document": "DocA", "questions": ["Q1", "Q2"]}
-    all_documents = set(row["document"] for row in input_data)
     is_best_according_to_cosine_similarity = partial(
         rankwise.classify.calculations.is_best,
         calculate_average_cosine_distance,
@@ -179,6 +194,9 @@ def run_classify_cosine_similarity_subcommand(args):
         normalize_fn,
         all_documents,
     )
+
+    pbar = tqdm(total=len(all_questions), disable=not args.show_progress)
+
     for row in input_data:
         good, bad = list(), list()
         this_document, questions = row["document"], row["questions"]
@@ -188,6 +206,7 @@ def run_classify_cosine_similarity_subcommand(args):
                 good if is_best_according_to_cosine_similarity(question, this_document) else bad
             )
             collection.append(question)
+            pbar.update(1)
 
         yield rankwise.classify.calculations.format_output(this_document, good, bad)
 
@@ -195,6 +214,54 @@ def run_classify_cosine_similarity_subcommand(args):
 def make_parser():
     parser = argparse.ArgumentParser(description="Rankwise: A tool for evaluating embedding models")
     subparsers = parser.add_subparsers(dest="command", title="commands", required=True)
+
+    calculate_entropy_parser = subparsers.add_parser(
+        "calculate-entropy", help="Calculate entropy operations"
+    )
+    calculate_entropy_subparsers = calculate_entropy_parser.add_subparsers(
+        dest="command", title="commands", required=True
+    )
+    isoscore_parser = calculate_entropy_subparsers.add_parser(
+        "iso-score", help="Calculate the isotropy score of the given dataset of documents"
+    )
+    isoscore_parser.add_argument(
+        "-p",
+        "--show-progress",
+        action=argparse.BooleanOptionalAction,
+        required=False,
+        default=False,
+        help="Show progress bar",
+    )
+    isoscore_parser.add_argument(
+        "-w",
+        "--max-workers",
+        type=int,
+        required=False,
+        default=5,
+        help="Number of workers to use for calculating the embeddings",
+    )
+    isoscore_parser.add_argument(
+        "-E",
+        "--embedding-model",
+        required=True,
+        type=exceptions_to_argument_errors(import_embedding_model),
+        help="Embedding model to use",
+    )
+    isoscore_parser.add_argument(
+        "-i",
+        "--input",
+        type=argparse.FileType("r"),
+        required=False,
+        default=sys.stdin,
+        help="Input file with documents to calculate the isotropy score",
+    )
+    isoscore_parser.add_argument(
+        "-o",
+        "--output-file",
+        type=argparse.FileType("wb"),
+        help="Path of the output file in jsonl format where the result will be saved.",
+    )
+    isoscore_parser.set_defaults(func=run_calculate_isoscore_subcommand)
 
     evaluate_parser = subparsers.add_parser("evaluate", help="Evaluate operations")
     evaluate_subparsers = evaluate_parser.add_subparsers(
@@ -204,10 +271,27 @@ def make_parser():
         "embedding-models", help="Evaluate embedding models"
     )
     evaluate_embedding_parser.add_argument(
+        "-p",
+        "--show-progress",
+        action=argparse.BooleanOptionalAction,
+        required=False,
+        default=False,
+        help="Show progress bar",
+    )
+    evaluate_embedding_parser.add_argument(
+        "-w",
+        "--max-workers",
+        type=int,
+        required=False,
+        default=5,
+        help="Number of workers to use for evaluating the embeddings",
+    )
+    evaluate_embedding_parser.add_argument(
         "-E",
         "--embedding-model",
         action="append",
         type=exceptions_to_argument_errors(import_embedding_model),
+        required=True,
         help="Embedding model to use",
     )
     evaluate_embedding_parser.add_argument(
@@ -234,7 +318,7 @@ def make_parser():
         type=str,
         choices=["hit_rate", "mrr", "precision", "recall", "ap", "ndcg"],
         required=False,
-        default=["hit_rate", "mrr"],
+        default=["hit_rate", "mrr", "precision", "recall", "ap", "ndcg"],
         help="Metrics to calculate",
     )
     evaluate_embedding_parser.add_argument(
@@ -357,6 +441,14 @@ def make_parser():
         "cosine-similarity", help="Categorize the generated dataset by cosine similarity"
     )
     classify_cosine_similarity_parser.add_argument(
+        "-p",
+        "--show-progress",
+        action=argparse.BooleanOptionalAction,
+        required=False,
+        default=False,
+        help="Show progress bar",
+    )
+    classify_cosine_similarity_parser.add_argument(
         "-i",
         "--input",
         type=argparse.FileType("r"),
@@ -369,6 +461,7 @@ def make_parser():
         "--embedding-model",
         action="append",
         type=exceptions_to_argument_errors(import_embedding_model),
+        required=True,
         help="Embedding model to use",
     )
     classify_cosine_similarity_parser.add_argument(

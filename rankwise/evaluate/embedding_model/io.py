@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+
 from llama_index.core import VectorStoreIndex
 from llama_index.core.evaluation import RetrieverEvaluator
+from tqdm.asyncio import tqdm as tqdm_asyncio
 
 from rankwise.calculations import content_id, content_to_node
 from rankwise.evaluate.embedding_model.calculations import Appender
@@ -25,8 +28,8 @@ def build_evaluator(embed_model, top_k, contents, metrics):
     retriever = index.as_retriever(similarity_top_k=top_k)
     retriever_evaluator = RetrieverEvaluator.from_metric_names(metrics, retriever=retriever)
 
-    def _evaluate(query, contents_in_expected_order):
-        return retriever_evaluator.evaluate(
+    async def _evaluate(query, contents_in_expected_order):
+        return await retriever_evaluator.aevaluate(
             query=query,
             expected_ids=[content_id(c) for c in contents_in_expected_order],
         )
@@ -34,14 +37,30 @@ def build_evaluator(embed_model, top_k, contents, metrics):
     return _evaluate
 
 
-def accumulate_evaluation_metrics(evaluate_fn, queries_with_expected_sorted_content):
+def accumulate_evaluation_metrics(
+    evaluate_fn, queries_with_expected_sorted_content, max_workers=5, show_progress=False
+):
     metrics = Appender()
+    evaluation_items = list(queries_with_expected_sorted_content.items())
+    semaphore = asyncio.Semaphore(max_workers)
+    pbar = tqdm_asyncio(total=len(evaluation_items), disable=not show_progress)
 
-    for (
-        query,
-        contents_in_expected_order,
-    ) in queries_with_expected_sorted_content.items():
-        evaluation = evaluate_fn(query, contents_in_expected_order)
-        metrics.accumulate(evaluation.metric_vals_dict)
+    async def _evaluate(query, contents_in_expected_order):
+        async with semaphore:
+            result = await evaluate_fn(query, contents_in_expected_order)
+            pbar.update(1)
+            return result
 
-    return metrics
+    async def run_tasks():
+        tasks = [
+            asyncio.create_task(_evaluate(query, contents_in_expected_order))
+            for query, contents_in_expected_order in evaluation_items
+        ]
+        for coro in asyncio.as_completed(tasks):
+            evaluation = await coro
+            metrics.accumulate(evaluation.metric_vals_dict)
+
+        pbar.close()
+        return metrics
+
+    return asyncio.run(run_tasks())
